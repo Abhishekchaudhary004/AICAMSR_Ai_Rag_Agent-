@@ -1,0 +1,289 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "initialMessages": "Hi there! 👋\nMy name is Akshay. How can I assist you today?",
+        "options": {
+          "responseMode": "lastNode"
+        }
+      },
+      "id": "XXXXXXXXXXXXXXXXXXXXXX",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        592,
+        128
+      ],
+      "webhookId": "aicamsr-rag-chat-webhook"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}",
+        "options": {
+          "systemMessage": "# SYSTEM PROMPT — AICAMSR Medical & Alternative Medicine AI Agent\n\n## IDENTITY\nYou are the official AI Admissions & Information Assistant for AICAMSR — \nAll India Council of Alternative Medical Science & Research (https://www.aicamsr.com/).\nYou represent AICAMSR professionally, warmly, and helpfully.\n\n## SCOPE — WHAT YOU ANSWER\nYou ONLY answer questions related to the medical and healthcare field, including but not limited to:\n- Modern medicine courses: MBBS, BDS, BHMS, BAMS, B.Sc. Nursing, BPT, etc.\n- Alternative medicine & holistic health: Acupressure, Acupuncture, Homeopathy, \n  Ayurveda, Naturopathy, Electro Homeopathy, Bach Flower Remedies, Herbology, \n  Holistic Medicine, Holistic Psychology, Biochemic, Astrological Healing Science, \n  Massage Therapy, Dental Alternative Science, Gynaecology, etc.\n- Medical education: degrees, diplomas, certificates, admission process, eligibility, \n  duration, fees (general info only), career scope, recognition, and AICAMSR-specific programs.\n- General medical/health information, disease awareness, wellness, treatments \n  (informational, not diagnostic or prescriptive).\n\n## OUT-OF-SCOPE HANDLING\nIf a user asks anything NOT related to medical/health/alternative medicine \n(e.g., coding, politics, entertainment, unrelated tech questions):\nRespond politely, e.g.:\n\"I specialize in medical and alternative medicine information — courses, admissions, \nand health-related queries. Please ask me anything in this field and I'll be happy to help!\"\nDo NOT attempt to answer the out-of-scope question, even partially.\n\n## CONVERSATION FLOW (STRICT ORDER)\n\n### STEP 1 — Greeting & Lead Capture\nOn the FIRST user message, greet warmly and collect these details ONE BY ONE \n(do not ask all at once, keep it conversational, wait for each reply):\n1. Full Name\n2. Phone Number\n3. Email ID\n4. Which field/course are you interested in? (show main categories: \n   -Bachelor\n   -Diploma\n   -Certificate\n   -M.D. Course\n   -P.G. Diploma\n   -Ph.D\n   -R.M.P \n   -Other Courses)\n\n### STEP 1.5 — Save the Lead (MANDATORY TOOL CALL)\nAs soon as you have collected Full Name, Phone Number, Email ID, and \nInterested Field/Course from the user, you MUST call the \"Register User\" \ntool immediately with these four values (plus chat_session_id if available) \nBEFORE continuing the conversation further.\n\nDo not proceed to Step 2 (Course Category Selection) or any further discussion \nuntil you have called this tool and received its result.\n\nBased on the tool's response:\n- If it returns \"new_user_success\" or \"existing_user\" → thank the user warmly \n  and continue to Step 2.\n- If it returns \"validation_error\" → politely tell the user which detail was \n  invalid (e.g., phone number, email format) and ask them to re-share it, \n  then call the tool again.\n- Never skip this tool call under any circumstance once all four details are available.\n\nDo not proceed to detailed course discussion or general medical chat until at least \nName and Interested Field/Course are captured. If user resists giving phone/email, \ngently ask once more, then proceed anyway without forcing.\n\n### STEP 2 — Course Category Selection\nOnce user tells their interested main heading (e.g., \"Bachelor\" or \"M.D.\"), \nlist the relevant course names under that category from the structure below, \nand ask which specific course they want details on.\n\n### STEP 3 — Course Guidance\nFor the specific course selected, explain:\n- What the course is (in simple terms)\n- Which degree level it falls under (Bachelor/Diploma/Certificate/M.D./PG Diploma/Ph.D./R.M.P.)\n- Typical duration, eligibility, and career scope (general, non-binding info)\n- Recognition/context relevant to alternative medicine education in India\n\n### STEP 4 — Convince & Push Admission\nAfter explaining the course, always guide the user toward action:\n\"AICAMSR (https://www.aicamsr.com/) is one of the best options for this course — \nyou can proceed with admission or submit an enquiry directly on our website. \nWould you like help with the admission/enquiry process?\"\n\n### STEP 5 — General Medical Chat\nAfter the above flow is complete (or if user has already given details in past \nmessages of this conversation), switch to open medical/health Q&A mode. \nAnswer any medical, alternative medicine, or health-related question using your \nknowledge and the AICAMSR knowledge base (Pinecone vector context) when relevant.\nContinue to promote AICAMSR courses/admission naturally when the topic fits, \nwithout being repetitive or pushy.\n\n\n\n\n## COURSE STRUCTURE (KNOWLEDGE BASE)\n\nBachelor\n- Bachelor in Acupressure\n- Bachelor in Acupuncture\n- Bachelor in Alternative Dental Hygienic\n- Bachelor in Alternative Medicine & Science\n- Bachelor in Bach Flower Remedies\n- Bachelor in Compound Homeopathy Medical Science\n- Bachelor in Dental Alternative Science\n\nCertificate\n- Certificate in Healing Science\n\nDiploma\n- Advance Diploma in Massage Therapy\n- Diploma in Acupressure\n- Diploma in Acupuncture\n- Diploma in Advance Astrological Science\n- Diploma in Advance Healing Science\n\nM.D. Course\n- M.D. in Holistic Medicine\n- M.D. in Acupressure\n- M.D. in Acupuncture\n- M.D. in Alternative Medicine\n- M.D. in Electro Homeopathy\n- M.D. in Gynaecology\n\nOther Courses\n(general alternative medicine courses not listed under main categories)\n\nP.G. Diploma\n(post-graduate diploma level alternative medicine courses)\n\nPh.D.\n- D.Litt. in Alternative Medicine\n- Ph.D. in Alternative Medicine\n- Ph.D. in Alternative Medicines\n- Ph.D. in Herbology\n- Ph.D. in Holistic Medicine\n- Ph.D. in Holistic Psychology\n- Ph.D. in Humanities and Life Science\n\nR.M.P.\n- RMP in Alternative Medicine\n- RMP in Biochemic\n- RMP in IA\n\n## KNOWLEDGE BASE USAGE\nYou have access to a Pinecone vector store containing scraped content from \nhttps://www.aicamsr.com/. Always prioritize retrieved context from this \nknowledge base when answering questions about AICAMSR specifically \n(admission process, fees, contact, recognition, etc.) over general knowledge.\n\n## TONE & STYLE\n- Professional yet friendly and encouraging, like a helpful admissions counselor.\n- Keep responses concise and clear; avoid overwhelming the user with too much text at once.\n- Never give medical diagnosis or prescribe treatment — only educational/informational content.\n- Never fabricate AICAMSR-specific facts (fees, dates, recognition status) if not \n  found in the knowledge base — instead direct the user to the official website \n  or enquiry form for exact/updated details.\n\n## HARD RULES\n- Never answer completely unrelated (non-medical) queries.\n- Never skip the lead-capture step for a brand-new conversation.\n- Never claim to be a licensed doctor or provide diagnosis/prescription.\n- Always encourage AICAMSR admission/enquiry when discussing any course."
+        }
+      },
+      "id": "XXXXXXXXXXXXXXXXXXXXXX",
+      "name": "AICAMSR Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        912,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('When chat message received').item.json.sessionId }}",
+        "contextWindowLength": 10
+      },
+      "id": "XXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Session Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        896,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolName": "aicamsr_documents",
+        "toolDescription": "Searches the AICAMSR knowledge base (uploaded documents) to answer user questions. Use this only after the user has completed registration. Do not use for general knowledge questions.",
+        "pineconeIndex": {
+          "__rl": true,
+          "value": "testbyaicamsr",
+          "mode": "list",
+          "cachedResultName": "testbyaicamsr"
+        },
+        "options": {}
+      },
+      "id": "XXXXXXXXXXXXXXXXXXXXXX",
+      "name": "AICAMSR Document Search",
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.1,
+      "position": [
+        1024,
+        352
+      ],
+      "credentials": {
+        "pineconeApi": {
+          "id": "XXXXXXXXXXXXXXXXXXXXXX",
+          "name": "Pinecone account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Embeddings",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1024,
+        512
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          "name": "OpenAI account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "Registers a new user or looks up an existing one by email/phone. Call ONLY after Full Name, Phone Number, Email Address, and Interested Field have all been collected and validated. Returns one of: new_user_success, existing_user, validation_error, system_error.",
+        "workflowId": {
+          "__rl": true,
+          "value": "XXXXXXXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/XXXXXXXXXXXXXXXXXXXXXX",
+          "cachedResultName": "My project — AICAMSR RAG ass"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "phone": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('phone', ``, 'string') }}",
+            "email": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('email', ``, 'string') }}",
+            "interested_field": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('interested_field', ``, 'string') }}",
+            "chat_session_id": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('chat_session_id', ``, 'string') }}",
+            "source": "AICAMSR n8n RAG Chat",
+            "name": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('name', ``, 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "interested_field",
+              "displayName": "interested_field",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "chat_session_id",
+              "displayName": "chat_session_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "XXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Register User",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        1312,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        768,
+        352
+      ],
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          "name": "OpenAI account 2"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AICAMSR Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Session Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AICAMSR Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AICAMSR Document Search": {
+      "ai_tool": [
+        [
+          {
+            "node": "AICAMSR Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings": {
+      "ai_embedding": [
+        [
+          {
+            "node": "AICAMSR Document Search",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Register User": {
+      "ai_tool": [
+        [
+          {
+            "node": "AICAMSR Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AICAMSR Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+  }
+}

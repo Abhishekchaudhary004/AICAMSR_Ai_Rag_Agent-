@@ -1,0 +1,864 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Replace me with your logic",
+      "type": "n8n-nodes-base.noOp",
+      "position": [
+        -2512,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $json.query || $json;\n\nconst name = String(input.name || '').replace(/\\s+/g, ' ').trim();\nconst email = String(input.email || '').trim().toLowerCase();\n\nconst rawPhone = String(input.phone || '').trim();\nconst digits = rawPhone.replace(/\\D/g, '');\nlet phone = rawPhone.startsWith('+') ? `+${digits}` : digits;\n\nif (digits.length === 10 && /^[6-9]/.test(digits)) {\n  phone = `+91${digits}`;\n}\n\nconst interestedField = String(input.interested_field || '').replace(/\\s+/g, ' ').trim();\n\nconst errors = [];\n\nif (name.length < 2 || !/[A-Za-z\\u0900-\\u097F]/.test(name)) {\n  errors.push('Please provide a valid full name.');\n}\n\nif (!/^[^\\s@]+@[^\\s@]+\\.[A-Za-z]{2,}$/.test(email)) {\n  errors.push('Please provide a valid email address.');\n}\n\nif (digits.length < 10 || digits.length > 15) {\n  errors.push('Please provide a valid phone number containing 10 to 15 digits.');\n}\n\nif (interestedField.length < 2) {\n  errors.push('Please provide your interested field or course.');\n}\n\nconst now = new Date().toISOString();\n\nreturn [{\n  json: {\n    valid: errors.length === 0,\n    errors,\n    error_message: errors.join(' '),\n\n    user_id: email || phone,\n    created_at: now,\n    updated_at: now,\n\n    name,\n    email,\n    phone,\n    phone_digits: digits,\n    interested_field: interestedField,\n\n    chat_session_id: String(input.chat_session_id || ''),\n    source: String(input.source || 'AICAMSR n8n RAG Chat'),\n    status: 'Admission Enquiry'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2320,
+        16
+      ],
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Normalize and Validate User"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2128,
+        16
+      ],
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "User Details Valid?"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "AICAMSR Admission Leads",
+          "cachedResultUrl": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+        },
+        "filtersUI": {
+          "values": []
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -1936,
+        -112
+      ],
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Search User by Email",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "leftValue": "={{ Boolean(String($json.email || '').trim()) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1568,
+        -112
+      ],
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Email Match Found?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXe",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "existing_user",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "new_user_created",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "name",
+              "value": "={{ $json.name }}",
+              "type": "string"
+            },
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "email",
+              "value": "={{ $json.email }}",
+              "type": "string"
+            },
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "phone",
+              "value": "={{ $json.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "interested_field",
+              "value": "={{ $json.interested_field }}",
+              "type": "string"
+            },
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "message",
+              "value": "Existing user found by email. Do not ask for details again. Continue with RAG-based assistance.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1328,
+        -320
+      ],
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Return Existing User by Email"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "AICAMSR Admission Leads",
+          "cachedResultUrl": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+        },
+        "filtersUI": {
+          "values": []
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -1392,
+        32
+      ],
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Search User by Phone",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "3m19Oq6Mc6lTwPxO",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "leftValue": "={{ Boolean(String($json.phone || '').trim()) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1008,
+        32
+      ],
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Phone Match Found?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "existing_user",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "new_user_created",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "name",
+              "value": "={{ $json.name }}",
+              "type": "string"
+            },
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "email",
+              "value": "={{ $json.email }}",
+              "type": "string"
+            },
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "phone",
+              "value": "={{ $json.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "interested_field",
+              "value": "={{ $json.interested_field }}",
+              "type": "string"
+            },
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "message",
+              "value": "Existing user found by phone. Do not ask for details again. Continue with RAG-based assistance.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -848,
+        -256
+      ],
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Return Existing User by Phone"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "AICAMSR Admission Leads",
+          "cachedResultUrl": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "user_id": "={{ $('Normalize and Validate User').item.json.user_id }}",
+            "name": "={{ $('Normalize and Validate User').item.json.name }}",
+            "email": "={{ $('Normalize and Validate User').item.json.email }}",
+            "phone": "={{ $('Normalize and Validate User').item.json.phone }}",
+            "interested_field": "={{ $('Normalize and Validate User').item.json.interested_field }}",
+            "created_at": "={{ $('Normalize and Validate User').item.json.created_at }}",
+            "updated_at": "={{ $('Normalize and Validate User').item.json.updated_at }}",
+            "status": "={{ $('Normalize and Validate User').item.json.status }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "interested_field",
+              "displayName": "interested_field",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_query",
+              "displayName": "last_query",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "success",
+              "displayName": "success",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "existing_user",
+              "displayName": "existing_user",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "new_user_created",
+              "displayName": "new_user_created",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -800,
+        48
+      ],
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Create New User",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "aiccsindia@gmail.com",
+        "subject": "=New AICAMSR Admission Enquiry - {{ $('Normalize and Validate User').item.json.interested_field }}",
+        "message": "=<h2>New AICAMSR Admission Enquiry</h2><p><b>Name:</b> {{ $('Normalize and Validate User').item.json.name }}</p><p><b>Email:</b> {{ $('Normalize and Validate User').item.json.email }}</p><p><b>Phone:</b> {{ $('Normalize and Validate User').item.json.phone }}</p><p><b>Interested field:</b> {{ $('Normalize and Validate User').item.json.interested_field }}</p><p><b>Source:</b> {{ $('Normalize and Validate User').item.json.source }}</p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -608,
+        48
+      ],
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Send Admin Alert",
+      "webhookId": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "5YqudNb6EvcnbTHa",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Normalize and Validate User').item.json.email }}",
+        "subject": "=AICAMSR Admission Information for {{ $('Normalize and Validate User').item.json.name }}",
+        "message": "=<p>Dear {{ $('Normalize and Validate User').item.json.name }},</p><p>Thank you for your interest in <b>{{ $('Normalize and Validate User').item.json.interested_field }}</b>.</p><p>AICAMSR provides practical, guided and career-oriented education. Our admission team will contact you regarding eligibility, course duration, documents and the admission process.</p><p>Warm regards,<br><b>Dr. Mani Kant</b><br>AICAMSR Admission Team</p><hr><small>This email confirms an enquiry only and does not represent final admission or an employment guarantee.</small>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -400,
+        48
+      ],
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Send User Admission Email",
+      "webhookId": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "existing_user",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "new_user_created",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "name",
+              "value": "={{ $('Normalize and Validate User').item.json.name }}",
+              "type": "string"
+            },
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "email",
+              "value": "={{ $('Normalize and Validate User').item.json.email }}",
+              "type": "string"
+            },
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "phone",
+              "value": "={{ $('Normalize and Validate User').item.json.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "interested_field",
+              "value": "={{ $('Normalize and Validate User').item.json.interested_field }}",
+              "type": "string"
+            },
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "message",
+              "value": "New user saved successfully. Admin and user emails were sent. Continue with RAG-based assistance.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -192,
+        48
+      ],
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Return New User Success"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "success",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "existing_user",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "message",
+              "value": "={{ $json.error_message }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1904,
+        272
+      ],
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Return Validation Error"
+    },
+    {
+      "parameters": {
+        "jsCode": "const targetEmail = String($('Normalize and Validate User').item.json.email || '').trim().toLowerCase();\nconst rows = $input.all();\n\nconst match = rows.find(row => {\n  const rowEmail = String(row.json.email || '').trim().toLowerCase();\n  return rowEmail && rowEmail === targetEmail;\n});\n\nif (match) {\n  return [match];\n}\n\nreturn [{ json: {} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1744,
+        -112
+      ],
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "const targetPhone = String($('Normalize and Validate User').item.json.phone || '').trim();\nconst rows = $input.all();\n\nconst match = rows.find(row => {\n  const rowPhone = String(row.json.phone || '').trim();\n  return rowPhone && rowPhone === targetPhone;\n});\n\nif (match) {\n  return [match];\n}\n\nreturn [{ json: {} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1200,
+        32
+      ],
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "inputSource": "jsonExample",
+        "jsonExample": "{\n  \"name\": \"Test User\",\n  \"phone\": \"9991536549\",\n  \"email\": \"testuser1@example.com\",\n  \"interested_field\": \"Artificial Intelligence and Information Technology\",\n  \"chat_session_id\": \"test-session-1\",\n  \"source\": \"AICAMSR n8n RAG Chat\"\n}",
+        "returnOutput": "allRuns"
+      },
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "typeVersion": 1.1,
+      "name": "When chat message received",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        -2736,
+        16
+      ]
+    }
+  ],
+  "connections": {
+    "Replace me with your logic": {
+      "main": [
+        [
+          {
+            "node": "Normalize and Validate User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize and Validate User": {
+      "main": [
+        [
+          {
+            "node": "User Details Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "User Details Valid?": {
+      "main": [
+        [
+          {
+            "node": "Search User by Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search User by Email": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Match Found?": {
+      "main": [
+        [
+          {
+            "node": "Return Existing User by Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Search User by Phone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search User by Phone": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Phone Match Found?": {
+      "main": [
+        [
+          {
+            "node": "Return Existing User by Phone",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create New User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create New User": {
+      "main": [
+        [
+          {
+            "node": "Send Admin Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Admin Alert": {
+      "main": [
+        [
+          {
+            "node": "Send User Admission Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send User Admission Email": {
+      "main": [
+        [
+          {
+            "node": "Return New User Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Email Match Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Phone Match Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Replace me with your logic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+  }
+}

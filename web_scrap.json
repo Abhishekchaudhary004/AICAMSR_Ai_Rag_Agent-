@@ -1,0 +1,934 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+              "name": "url",
+              "value": "={{ $json.route }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Input URL",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -9248,
+        -3344
+      ],
+      "notes": "Replace with a Form Trigger / Webhook field in production so the user supplies the URL at runtime."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate the URL entered by the user\nconst input = $input.first().json;\nconst rawUrl = (input.url || '').trim();\n\nconst isValid = /^https?:\\/\\/[^\\s]+\\.[^\\s]+/i.test(rawUrl);\n\nreturn [{\n  json: {\n    url: rawUrl,\n    is_valid: isValid,\n    validation_error: isValid ? '' : 'URL is missing, malformed, or does not start with http:// or https://'\n  }\n}];\n\n// n8n Code Node\n// Mode: Run Once for All Items\n\n"
+      },
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Validate URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -9024,
+        -3344
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.is_valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Is URL Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -8656,
+        -3344
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    url: input.url || '',\n    status: 'failed',\n    page_title: '',\n    meta_description: '',\n    headings: [],\n    business_name: '',\n    emails: [],\n    phones: [],\n    address: '',\n    social_links: [],\n    contact_page: '',\n    about_page: '',\n    services_or_products: [],\n    paragraphs: [],\n    image_urls: [],\n    internal_links: [],\n    external_links: [],\n    error_message: input.validation_error || 'Invalid URL'\n  }\n}];"
+      },
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Build Invalid URL Error JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -7856,
+        -3152
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "redirect": {
+            "redirect": {}
+          },
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "HTTP Request (Fetch Page)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -8304,
+        -3440
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": 200,
+              "rightValue": 400,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              },
+              "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "ignoreCase": false,
+          "looseTypeValidation": false
+        }
+      },
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Fetch Successful?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -8080,
+        -3440
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst url = $('Validate URL').first().json.url;\nreturn [{\n  json: {\n    url: url,\n    status: 'failed',\n    page_title: '',\n    meta_description: '',\n    headings: [],\n    business_name: '',\n    emails: [],\n    phones: [],\n    address: '',\n    social_links: [],\n    contact_page: '',\n    about_page: '',\n    services_or_products: [],\n    paragraphs: [],\n    image_urls: [],\n    internal_links: [],\n    external_links: [],\n    error_message: `Failed to fetch the page (status: ${input.statusCode || 'unknown'}). The site may be down, blocking bots, or login/payment protected.`\n  }\n}];"
+      },
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Build Fetch Error JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -7856,
+        -3344
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---- Extract & Clean Data ----\nconst url = $('Validate URL').first().json.url;\nconst html = $input.first().json.data || $input.first().json.body || '';\n\nconst dedupe = (arr) => [...new Set(arr.filter(v => v && v.toString().trim().length > 0))];\n\nfunction decodeEntities(str) {\n  return str\n    .replace(/&amp;/g, '&')\n    .replace(/&lt;/g, '<')\n    .replace(/&gt;/g, '>')\n    .replace(/&quot;/g, '\"')\n    .replace(/&#39;/g, \"'\")\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nfunction stripTags(str) {\n  return decodeEntities(str.replace(/<[^>]*>/g, ' '));\n}\n\n// --- Page Title ---\nlet pageTitle = '';\nconst titleMatch = html.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i);\nif (titleMatch) pageTitle = stripTags(titleMatch[1]);\n\n// --- Meta Description ---\nlet metaDescription = '';\nconst metaMatch = html.match(/<meta[^>]+name=[\"']description[\"'][^>]*content=[\"']([^\"']*)[\"'][^>]*>/i)\n  || html.match(/<meta[^>]+content=[\"']([^\"']*)[\"'][^>]+name=[\"']description[\"'][^>]*>/i);\nif (metaMatch) metaDescription = decodeEntities(metaMatch[1]);\n\n// --- OG Site Name (business name hint) ---\nlet businessName = '';\nconst ogSiteMatch = html.match(/<meta[^>]+property=[\"']og:site_name[\"'][^>]*content=[\"']([^\"']*)[\"'][^>]*>/i);\nif (ogSiteMatch) businessName = decodeEntities(ogSiteMatch[1]);\nif (!businessName && pageTitle) businessName = pageTitle.split(/[-|]/)[0].trim();\n\n// --- Headings (h1, h2, h3) ---\nlet headings = [];\nconst headingRegex = /<h[1-3][^>]*>([\\s\\S]*?)<\\/h[1-3]>/gi;\nlet hMatch;\nwhile ((hMatch = headingRegex.exec(html)) !== null) {\n  const text = stripTags(hMatch[1]);\n  if (text) headings.push(text);\n}\nheadings = dedupe(headings);\n\n// --- Paragraphs ---\nlet paragraphs = [];\nconst pRegex = /<p[^>]*>([\\s\\S]*?)<\\/p>/gi;\nlet pMatch;\nwhile ((pMatch = pRegex.exec(html)) !== null) {\n  const text = stripTags(pMatch[1]);\n  if (text && text.length > 20) paragraphs.push(text);\n}\nparagraphs = dedupe(paragraphs);\n\n// --- Emails ---\nlet emails = html.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/g) || [];\nemails = dedupe(emails).filter(e => !/\\.(png|jpg|jpeg|gif|svg|webp)$/i.test(e));\n\n// --- Phone Numbers ---\nlet phones = html.match(/(\\+?\\d{1,3}[\\s.-]?)?(\\(?\\d{2,4}\\)?[\\s.-]?){2,4}\\d{3,4}/g) || [];\nphones = phones\n  .map(p => p.trim())\n  .filter(p => p.replace(/\\D/g, '').length >= 7 && p.replace(/\\D/g, '').length <= 15);\nphones = dedupe(phones);\n\n// --- Address (basic heuristic: look for schema.org / address tags) ---\nlet address = '';\nconst addrTagMatch = html.match(/<address[^>]*>([\\s\\S]*?)<\\/address>/i);\nif (addrTagMatch) address = stripTags(addrTagMatch[1]);\nif (!address) {\n  const schemaAddrMatch = html.match(/\"streetAddress\"\\s*:\\s*\"([^\"]+)\"[\\s\\S]{0,200}?\"addressLocality\"\\s*:\\s*\"([^\"]+)\"/i);\n  if (schemaAddrMatch) address = `${schemaAddrMatch[1]}, ${schemaAddrMatch[2]}`;\n}\n\n// --- All links ---\nlet allLinks = [];\nconst linkRegex = /<a[^>]+href=[\"']([^\"'#][^\"']*)[\"']/gi;\nlet lMatch;\nwhile ((lMatch = linkRegex.exec(html)) !== null) {\n  allLinks.push(lMatch[1]);\n}\nallLinks = dedupe(allLinks);\n\nlet baseDomain = '';\ntry { baseDomain = new URL(url).hostname.replace('www.', ''); } catch (e) {}\n\nfunction toAbsolute(link) {\n  try {\n    return new URL(link, url).href;\n  } catch (e) {\n    return link;\n  }\n}\n\nconst absoluteLinks = allLinks.map(toAbsolute);\n\nconst internalLinks = dedupe(absoluteLinks.filter(l => {\n  try { return new URL(l).hostname.replace('www.', '') === baseDomain; } catch (e) { return false; }\n}));\n\nconst externalLinks = dedupe(absoluteLinks.filter(l => {\n  try { return new URL(l).hostname.replace('www.', '') !== baseDomain; } catch (e) { return false; }\n}));\n\n// --- Social Links ---\nconst socialDomains = ['facebook.com', 'instagram.com', 'twitter.com', 'x.com', 'linkedin.com', 'youtube.com', 'tiktok.com', 'pinterest.com', 'whatsapp.com'];\nconst socialLinks = dedupe(absoluteLinks.filter(l => socialDomains.some(d => l.includes(d))));\n\n// --- Contact / About page ---\nconst contactPage = internalLinks.find(l => /contact/i.test(l)) || '';\nconst aboutPage = internalLinks.find(l => /about/i.test(l)) || '';\n\n// --- Products / Services (headings/paragraphs containing keywords) ---\nconst serviceKeywords = /(service|product|solution|offering|plan|package)/i;\nlet servicesOrProducts = dedupe([\n  ...headings.filter(h => serviceKeywords.test(h)),\n  ...paragraphs.filter(p => serviceKeywords.test(p) && p.length < 300)\n]);\n\n// --- Images ---\nlet images = [];\nconst imgRegex = /<img[^>]+src=[\"']([^\"']+)[\"']/gi;\nlet iMatch;\nwhile ((iMatch = imgRegex.exec(html)) !== null) {\n  images.push(toAbsolute(iMatch[1]));\n}\nimages = dedupe(images);\n\nconst result = {\n  url: url,\n  status: 'success',\n  page_title: pageTitle,\n  meta_description: metaDescription,\n  headings: headings,\n  business_name: businessName,\n  emails: emails,\n  phones: phones,\n  address: address,\n  social_links: socialLinks,\n  contact_page: contactPage,\n  about_page: aboutPage,\n  services_or_products: servicesOrProducts,\n  paragraphs: paragraphs,\n  image_urls: images,\n  internal_links: internalLinks,\n  external_links: externalLinks,\n  error_message: ''\n};\n\nreturn [{ json: result }];"
+      },
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Extract & Clean Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -7856,
+        -3536
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Final Output",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -7632,
+        -3344
+      ]
+    },
+    {
+      "parameters": {
+        "formTitle": "WEB SCRAPER",
+        "formDescription": "Paste the link ",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "URL",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        -10144,
+        -3344
+      ],
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "On form submission",
+      "webhookId": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -9920,
+        -3344
+      ],
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "typeVersion": 3,
+      "position": [
+        -9472,
+        -3344
+      ],
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "url web scraping",
+          "cachedResultUrl": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "url": "={{ $json.url }}",
+            "page_title": "={{ $json.page_title }}",
+            "status": "={{ $json.status }}",
+            "meta_description": "={{ $json.meta_description }}",
+            "headings": "={{ $json.headings }}",
+            "business_name": "={{ $json.business_name }}",
+            "emails": "={{ $json.emails }}",
+            "phones": "={{ $json.phones }}",
+            "address": "={{ $json.address }}",
+            "social_links": "={{ $json.social_links }}",
+            "contact_page": "={{ $json.contact_page }}",
+            "about_page": "={{ $json.about_page }}",
+            "services_or_products": "={{ $json.services_or_products }}",
+            "paragraphs": "={{ $json.paragraphs }}",
+            "image_urls": "={{ $json.image_urls }}",
+            "internal_links": "={{ $json.internal_links }}",
+            "external_links": "={{ $json.external_links }}",
+            "error_message": "={{ $json.error_message }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "page_title",
+              "displayName": "page_title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "meta_description",
+              "displayName": "meta_description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "headings",
+              "displayName": "headings",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "business_name",
+              "displayName": "business_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "emails",
+              "displayName": "emails",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phones",
+              "displayName": "phones",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "address",
+              "displayName": "address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "social_links",
+              "displayName": "social_links",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_page",
+              "displayName": "contact_page",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "about_page",
+              "displayName": "about_page",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "services_or_products",
+              "displayName": "services_or_products",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "paragraphs",
+              "displayName": "paragraphs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "image_urls",
+              "displayName": "image_urls",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "internal_links",
+              "displayName": "internal_links",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "external_links",
+              "displayName": "external_links",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "error_message",
+              "displayName": "error_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -7184,
+        -3200
+      ],
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "pineconeIndex": {
+          "__rl": true,
+          "value": "testbyaicamsr",
+          "mode": "list",
+          "cachedResultName": "testbyaicamsr"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3,
+      "position": [
+        -8768,
+        -3952
+      ],
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Pinecone Vector Store",
+      "credentials": {
+        "pineconeApi": {
+          "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          "name": "Pinecone account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -8800,
+        -3728
+      ],
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Embeddings OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          "name": "OpenAI account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chunkSize": 1500,
+        "chunkOverlap": 200
+      },
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Token Splitter1",
+      "type": "@n8n/n8n-nodes-langchain.textSplitterTokenSplitter",
+      "position": [
+        -8592,
+        -3520
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Default Data Loader1",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "position": [
+        -8672,
+        -3728
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "url web scraping",
+          "cachedResultUrl": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+        },
+        "options": {}
+      },
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Google Sheets (Read Rows)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -9248,
+        -3744
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-0001",
+              "name": "combinedText",
+              "type": "string",
+              "value": "={{ Object.values($json).filter(v => v !== undefined && v !== null && v !== '').join('\\n') }}"
+            },
+            {
+              "id": "assign-0002",
+              "name": "rowId",
+              "type": "string",
+              "value": "={{ $json.id || $itemIndex.toString() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Edit Fields (Combine Columns)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -9024,
+        -3744
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-0003",
+              "name": "status",
+              "type": "string",
+              "value": "success"
+            },
+            {
+              "id": "assign-0004",
+              "name": "message",
+              "type": "string",
+              "value": "Rows embedded and upserted into Pinecone successfully"
+            },
+            {
+              "id": "assign-0005",
+              "name": "rowsProcessed",
+              "type": "number",
+              "value": "={{ $json.metadata.line }}"
+            },
+            {
+              "id": "assign-0006",
+              "name": "timestamp",
+              "type": "string",
+              "value": "={{ $now.toISO() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -8304,
+        -3744
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code Node\n// Mode: Run Once for All Items\n\n// --------------------------------------------------\n// 1. Form URL\n// --------------------------------------------------\n\nconst formData = $('On form submission').first().json;\n\nlet baseUrl = String(\n  formData.URL ||\n  formData.url ||\n  formData.websiteUrl ||\n  formData.website_url ||\n  ''\n).trim();\n\nif (!baseUrl) {\n  throw new Error('Form me URL field nahi mili.');\n}\n\nif (!/^https?:\\/\\//i.test(baseUrl)) {\n  baseUrl = `https://${baseUrl}`;\n}\n\nbaseUrl = baseUrl.replace(/\\/+$/, '');\n\n// --------------------------------------------------\n// 2. HTTP Request response\n// --------------------------------------------------\n\nconst response = $input.first().json;\n\nlet html = '';\n\nif (typeof response === 'string') {\n  html = response;\n} else {\n  html = String(\n    response.data ??\n    response.body ??\n    response.html ??\n    response.response ??\n    ''\n  );\n}\n\nif (!html.trim()) {\n  throw new Error(\n    'HTTP Request se HTML nahi mila. Response Format ko Text rakhein.'\n  );\n}\n\n// --------------------------------------------------\n// 3. Base URL manually parse\n// --------------------------------------------------\n\nconst baseMatch = baseUrl.match(\n  /^(https?):\\/\\/([^/?#]+)(\\/[^?#]*)?/i\n);\n\nif (!baseMatch) {\n  throw new Error(`Invalid URL: ${baseUrl}`);\n}\n\nconst protocol = baseMatch[1].toLowerCase();\nconst originalHost = baseMatch[2].toLowerCase();\nconst normalizedHost = originalHost.replace(/^www\\./, '');\nconst origin = `${protocol}://${originalHost}`;\n\nlet currentPath = baseMatch[3] || '/';\n\nlet baseDirectory = currentPath;\n\nif (!baseDirectory.endsWith('/')) {\n  const lastSlash = baseDirectory.lastIndexOf('/');\n  baseDirectory =\n    lastSlash >= 0\n      ? baseDirectory.substring(0, lastSlash + 1)\n      : '/';\n}\n\n// --------------------------------------------------\n// 4. Helper functions\n// --------------------------------------------------\n\nfunction decodeEntities(value) {\n  return String(value || '')\n    .replace(/&amp;/gi, '&')\n    .replace(/&#38;/gi, '&')\n    .replace(/&#x26;/gi, '&')\n    .replace(/&quot;/gi, '\"')\n    .replace(/&#34;/gi, '\"')\n    .replace(/&#39;/gi, \"'\")\n    .trim();\n}\n\nfunction normalizePath(path) {\n  const parts = [];\n\n  for (const part of String(path || '').split('/')) {\n    if (!part || part === '.') {\n      continue;\n    }\n\n    if (part === '..') {\n      parts.pop();\n      continue;\n    }\n\n    parts.push(part);\n  }\n\n  return `/${parts.join('/')}`;\n}\n\nfunction getHostname(url) {\n  const match = String(url || '').match(\n    /^https?:\\/\\/([^/?#]+)/i\n  );\n\n  if (!match) {\n    return '';\n  }\n\n  return match[1]\n    .toLowerCase()\n    .replace(/^www\\./, '')\n    .split(':')[0];\n}\n\nfunction removeTracking(url) {\n  return String(url || '')\n    .replace(\n      /([?&])(utm_[^=&]+|fbclid|gclid|dclid|msclkid|yclid|mc_cid|mc_eid)=[^&#]*/gi,\n      '$1'\n    )\n    .replace(/\\?&/g, '?')\n    .replace(/&&+/g, '&')\n    .replace(/[?&]$/, '');\n}\n\nfunction isInvalidLink(link) {\n  const lower = String(link || '').toLowerCase();\n\n  return (\n    !lower ||\n    lower.startsWith('#') ||\n    lower.startsWith('mailto:') ||\n    lower.startsWith('tel:') ||\n    lower.startsWith('javascript:') ||\n    lower.startsWith('data:') ||\n    lower.startsWith('sms:') ||\n    lower.startsWith('whatsapp:') ||\n    lower.startsWith('skype:')\n  );\n}\n\nfunction isAsset(url) {\n  const pathname = String(url || '')\n    .split('?')[0]\n    .split('#')[0]\n    .toLowerCase();\n\n  const blockedExtensions = [\n    '.jpg', '.jpeg', '.png', '.gif', '.webp',\n    '.svg', '.ico', '.bmp', '.avif',\n    '.css', '.js', '.json', '.xml',\n    '.pdf', '.doc', '.docx', '.xls', '.xlsx',\n    '.ppt', '.pptx', '.zip', '.rar', '.7z',\n    '.mp3', '.wav', '.mp4', '.avi', '.mov',\n    '.webm', '.woff', '.woff2', '.ttf',\n    '.eot', '.otf'\n  ];\n\n  return blockedExtensions.some(extension =>\n    pathname.endsWith(extension)\n  );\n}\n\nfunction resolveLink(rawLink) {\n  let link = decodeEntities(rawLink);\n\n  if (isInvalidLink(link)) {\n    return null;\n  }\n\n  link = link.split('#')[0].trim();\n\n  if (!link) {\n    return null;\n  }\n\n  // //example.com/page\n  if (link.startsWith('//')) {\n    return `${protocol}:${link}`;\n  }\n\n  // https://example.com/page\n  if (/^https?:\\/\\//i.test(link)) {\n    return link;\n  }\n\n  // /about\n  if (link.startsWith('/')) {\n    return `${origin}${normalizePath(link)}`;\n  }\n\n  // ?page=2\n  if (link.startsWith('?')) {\n    return `${origin}${currentPath}${link}`;\n  }\n\n  // about, services/web-design, ../contact\n  return `${origin}${normalizePath(\n    `${baseDirectory}${link}`\n  )}`;\n}\n\n// --------------------------------------------------\n// 5. Route collection\n// --------------------------------------------------\n\nconst routes = [];\nconst seen = new Set();\n\nfunction addRoute(url) {\n  if (!url) {\n    return;\n  }\n\n  let cleanedUrl = url\n    .split('#')[0]\n    .trim();\n\n  cleanedUrl = removeTracking(cleanedUrl);\n\n  if (!cleanedUrl) {\n    return;\n  }\n\n  // Only same-domain routes\n  if (getHostname(cleanedUrl) !== normalizedHost) {\n    return;\n  }\n\n  if (isAsset(cleanedUrl)) {\n    return;\n  }\n\n  // Keep homepage clean\n  if (cleanedUrl === `${origin}/`) {\n    cleanedUrl = origin;\n  }\n\n  // Remove trailing slash except homepage\n  if (\n    cleanedUrl !== origin &&\n    cleanedUrl.endsWith('/')\n  ) {\n    cleanedUrl = cleanedUrl.replace(/\\/+$/, '');\n  }\n\n  if (!seen.has(cleanedUrl)) {\n    seen.add(cleanedUrl);\n    routes.push(cleanedUrl);\n  }\n}\n\n// Homepage first\naddRoute(origin);\n\n// --------------------------------------------------\n// 6. Extract href values\n// --------------------------------------------------\n\nconst hrefRegex =\n  /<a\\b[^>]*\\bhref\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s\"'<>`]+))/gi;\n\nlet match;\n\nwhile ((match = hrefRegex.exec(html)) !== null) {\n  const href =\n    match[1] ||\n    match[2] ||\n    match[3] ||\n    '';\n\n  addRoute(resolveLink(href));\n}\n\n// --------------------------------------------------\n// 7. Detect invalid/server response\n// --------------------------------------------------\n\nconst responseText = html\n  .replace(/<[^>]+>/g, ' ')\n  .replace(/\\s+/g, ' ')\n  .trim();\n\nconst serverError =\n  /mysqli/i.test(html) ||\n  /connection failed/i.test(html) ||\n  /operation not permitted/i.test(html) ||\n  /fatal error/i.test(html);\n\nif (serverError) {\n  return [\n    {\n      json: {\n        route: origin,\n        page_number: 1,\n        base_url: baseUrl,\n        domain: normalizedHost,\n        total_routes: 1,\n        status: 'website_server_error',\n        error_message:\n          'Website actual HTML ke badle PHP/MySQL error return kar rahi hai.',\n        response_preview: responseText.slice(0, 500)\n      }\n    }\n  ];\n}\n\n// --------------------------------------------------\n// 8. Output\n// --------------------------------------------------\n\nreturn routes.map((route, index) => ({\n  json: {\n    route,\n    page_number: index + 1,\n    base_url: baseUrl,\n    domain: normalizedHost,\n    total_routes: routes.length\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -9696,
+        -3344
+      ],
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Extract all routes"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\n// Google Sheets maximum characters allowed in one cell\nconst CELL_LIMIT = 50000;\nconst TRUNCATED_SUFFIX = \"... [truncated]\";\n\n// If AI Agent returns JSON inside \"output\", parse it\nlet data = input;\n\nif (typeof input.output === \"string\") {\n  try {\n    data = JSON.parse(input.output);\n  } catch (error) {\n    // Keep original input if output is not valid JSON\n    data = input;\n  }\n}\n\n// If parsed data is an array, take the first object\nif (Array.isArray(data)) {\n  data = data[0] || {};\n}\n\n// Ensure data is an object\nif (!data || typeof data !== \"object\") {\n  data = {};\n}\n\n/**\n * Convert any value into clean text.\n */\nfunction cleanText(value) {\n  if (value === undefined || value === null) {\n    return \"\";\n  }\n\n  let text;\n\n  if (Array.isArray(value)) {\n    text = value\n      .filter(item => item !== undefined && item !== null && item !== \"\")\n      .map(item => {\n        if (typeof item === \"object\") {\n          return JSON.stringify(item);\n        }\n\n        return String(item);\n      })\n      .join(\" | \");\n  } else if (typeof value === \"object\") {\n    try {\n      text = JSON.stringify(value);\n    } catch (error) {\n      text = String(value);\n    }\n  } else {\n    text = String(value);\n  }\n\n  return text\n    .replace(/&nbsp;/gi, \" \")\n    .replace(/&#160;/gi, \" \")\n    .replace(/\\u00A0/g, \" \")\n    .replace(/\\s+/g, \" \")\n    .trim();\n}\n\n/**\n * Keep the original text when it is below the limit.\n * Truncate only when it exceeds 50,000 characters.\n */\nfunction limitCellText(value, maxLength = CELL_LIMIT) {\n  const text = cleanText(value);\n\n  if (text.length <= maxLength) {\n    return text;\n  }\n\n  const availableLength = maxLength - TRUNCATED_SUFFIX.length;\n\n  return text.substring(0, availableLength) + TRUNCATED_SUFFIX;\n}\n\n/**\n * Convert a value into an array.\n */\nfunction normalizeArray(value) {\n  if (value === undefined || value === null || value === \"\") {\n    return [];\n  }\n\n  return Array.isArray(value) ? value : [value];\n}\n\n/**\n * Remove duplicate array values.\n */\nfunction uniqueArray(value) {\n  const array = normalizeArray(value);\n\n  return [\n    ...new Set(\n      array\n        .map(item => cleanText(item))\n        .filter(Boolean)\n    )\n  ];\n}\n\n/**\n * Convert an array into a single Google Sheets cell.\n * The final cell will never exceed 50,000 characters.\n */\nfunction arrayToCell(value) {\n  const text = uniqueArray(value).join(\" | \");\n\n  return limitCellText(text, CELL_LIMIT);\n}\n\n/**\n * Extract valid phone numbers.\n */\nfunction extractValidPhones(value) {\n  const text = cleanText(value);\n\n  if (!text) {\n    return \"\";\n  }\n\n  const matches =\n    text.match(/(?:\\+?\\d[\\d\\s().-]{7,}\\d)/g) || [];\n\n  const validPhones = matches\n    .map(phone => {\n      const startsWithPlus = phone.trim().startsWith(\"+\");\n      const digits = phone.replace(/\\D/g, \"\");\n\n      return startsWithPlus ? `+${digits}` : digits;\n    })\n    .filter(phone => {\n      const digits = phone.replace(/\\D/g, \"\");\n\n      // Accept phone numbers containing 10 to 15 digits\n      if (digits.length < 10 || digits.length > 15) {\n        return false;\n      }\n\n      // Reject numbers containing only one repeated digit\n      if (/^(\\d)\\1+$/.test(digits)) {\n        return false;\n      }\n\n      // Reject common dummy numbers\n      const dummyNumbers = [\n        \"1234567890\",\n        \"0123456789\",\n        \"0000000000\",\n        \"1111111111\",\n        \"2222222222\",\n        \"3333333333\",\n        \"4444444444\",\n        \"5555555555\",\n        \"6666666666\",\n        \"7777777777\",\n        \"8888888888\",\n        \"9999999999\"\n      ];\n\n      if (dummyNumbers.some(dummy => digits.includes(dummy))) {\n        return false;\n      }\n\n      return true;\n    });\n\n  return limitCellText(\n    [...new Set(validPhones)].join(\" | \"),\n    CELL_LIMIT\n  );\n}\n\n/**\n * Combine multiple possible input fields.\n */\nfunction firstAvailable(...values) {\n  for (const value of values) {\n    if (\n      value !== undefined &&\n      value !== null &&\n      value !== \"\"\n    ) {\n      return value;\n    }\n  }\n\n  return \"\";\n}\n\n// Prepare phone source from all relevant fields\nconst phoneSource = [\n  data.phones,\n  data.phone,\n  data.contact_numbers,\n  data.contact_number,\n  data.mobile,\n  data.telephone,\n  data.paragraphs\n]\n  .filter(value => value !== undefined && value !== null)\n  .map(value => cleanText(value))\n  .join(\" | \");\n\nreturn [\n  {\n    json: {\n      url: limitCellText(data.url),\n\n      page_title: limitCellText(data.page_title),\n\n      status: limitCellText(data.status),\n\n      meta_description: limitCellText(data.meta_description),\n\n      headings: arrayToCell(data.headings),\n\n      business_name: limitCellText(data.business_name),\n\n      emails: arrayToCell(data.emails),\n\n      phones: extractValidPhones(phoneSource),\n\n      address: limitCellText(data.address),\n\n      social_links: arrayToCell(data.social_links),\n\n      contact_page: limitCellText(data.contact_page),\n\n      about_page: limitCellText(data.about_page),\n\n      services_or_products: arrayToCell(\n        firstAvailable(\n          data.services_or_products,\n          data.services,\n          data.products\n        )\n      ),\n\n      paragraphs: arrayToCell(data.paragraphs),\n\n      image_urls: arrayToCell(\n        firstAvailable(\n          data.image_urls,\n          data.images\n        )\n      ),\n\n      internal_links: arrayToCell(data.internal_links),\n\n      external_links: arrayToCell(data.external_links),\n\n      error_message: limitCellText(\n        firstAvailable(\n          data.error_message,\n          data.reason\n        )\n      )\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -7408,
+        -3344
+      ],
+      "id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "name": "Make structure"
+    }
+  ],
+  "connections": {
+    "Input URL": {
+      "main": [
+        [
+          {
+            "node": "Validate URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate URL": {
+      "main": [
+        [
+          {
+            "node": "Is URL Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is URL Valid?": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request (Fetch Page)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Invalid URL Error JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Invalid URL Error JSON": {
+      "main": [
+        [
+          {
+            "node": "Final Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request (Fetch Page)": {
+      "main": [
+        [
+          {
+            "node": "Fetch Successful?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Successful?": {
+      "main": [
+        [
+          {
+            "node": "Extract & Clean Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Fetch Error JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Fetch Error JSON": {
+      "main": [
+        [
+          {
+            "node": "Final Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract & Clean Data": {
+      "main": [
+        [
+          {
+            "node": "Final Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final Output": {
+      "main": [
+        [
+          {
+            "node": "Make structure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Extract all routes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets (Read Rows)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Input URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pinecone Vector Store": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Pinecone Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token Splitter1": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader1",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader1": {
+      "ai_document": [
+        [
+          {
+            "node": "Pinecone Vector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets (Read Rows)": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields (Combine Columns)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields (Combine Columns)": {
+      "main": [
+        [
+          {
+            "node": "Pinecone Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract all routes": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make structure": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "XXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+  }
+}
